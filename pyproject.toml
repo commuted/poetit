@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "poedit"
+version = "0.1.0"
+description = "Poetry editor with meter analysis, rhyme lookup, thesaurus, and dependency diagrams"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "nltk>=3.8",
+    "prosodic>=3.0",
+    "spacy>=3.0",
+    "cairosvg>=2.0",
+    "Pillow>=9.0",
+]
+
+[project.scripts]
+poedit = "poedit.app:main"
+
+[project.optional-dependencies]
+# spaCy model — install separately after the package:
+#   python -m spacy download en_core_web_md
+dev = ["build", "twine"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["poedit", "poedit.*"]
+
+[tool.setuptools.package-data]
+"poedit" = ["data/*.js"]
