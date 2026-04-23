@@ -11,7 +11,8 @@ license = { text = "MIT" }
 dependencies = [
     "nltk>=3.8",
     "prosodic>=3.0",
-    "spacy>=3.0",
+    "spacy>=3.8,<3.9",
+    "en-core-web-md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl",
     "cairosvg>=2.0",
     "Pillow>=9.0",
 ]
@@ -20,8 +21,6 @@ dependencies = [
 poedit = "poedit.app:main"
 
 [project.optional-dependencies]
-# spaCy model — install separately after the package:
-#   python -m spacy download en_core_web_md
 dev = ["build", "twine"]
 
 [tool.setuptools.packages.find]
