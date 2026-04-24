@@ -7,7 +7,7 @@ name = "poedit"
 version = "0.1.0"
 description = "Poetry editor with meter analysis, rhyme lookup, thesaurus, and dependency diagrams"
 requires-python = ">=3.10"
-license = { text = "CC-BY-4.0" }
+license = { text = "MIT" }
 dependencies = [
     "nltk>=3.8",
     "prosodic>=3.0",

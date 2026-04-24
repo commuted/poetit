@@ -1,0 +1,44 @@
+Third-Party Software and Data Notices
+
+This project includes or depends on the following third-party software
+and data. Their respective licenses and notices are reproduced below.
+
+---
+
+NLTK (Natural Language Toolkit)
+  License: Apache License 2.0
+  https://www.nltk.org/
+
+prosodic
+  License: Apache License 2.0
+  https://github.com/quadrismegistus/prosodic
+
+spaCy
+  License: MIT License
+  https://spacy.io/
+
+en_core_web_md (spaCy English pipeline)
+  License: MIT License
+  https://github.com/explosion/spacy-models
+
+CairoSVG
+  License: GNU Lesser General Public License v3.0 or later (LGPL-3.0-or-later)
+  https://cairosvg.org/
+
+Pillow (PIL Fork)
+  License: HPND (Historical Permission Notice and Disclaimer) / MIT-CMU
+  https://python-pillow.org/
+
+Rhyming dictionary data (rdict.js)
+  Bundled data file from an external rhyming dictionary source.
+
+Thesaurus data (th_en_US_new.js)
+  Bundled data file from an external thesaurus source.
+
+---
+
+For the full text of the Apache License 2.0, see:
+  https://www.apache.org/licenses/LICENSE-2.0
+
+For the full text of the GNU LGPL v3.0, see:
+  https://www.gnu.org/licenses/lgpl-3.0.html
