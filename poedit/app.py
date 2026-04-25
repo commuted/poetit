@@ -1386,6 +1386,7 @@ class Editor:
         te.bind("<Tab>",        lambda e, r=row: self._go(r + 1))
         te.bind("<FocusIn>",    lambda e, r=row: self._on_focus_in(r))
         te.bind("<FocusOut>",   lambda e, r=row: self._on_focus_out(r))
+        te.bind("<<Paste>>",    lambda e, r=row: self._paste(r))
 
         self._line_meta.append(
             [{"font": fname, "size": fsize, "len": len(text)}] if text else []
@@ -1463,6 +1464,45 @@ class Editor:
             return "break"
         # Let the default BackSpace behavior happen
         return None
+
+    def _paste(self, row):
+        """Handle multi-line paste by splitting on universal newlines."""
+        try:
+            clip = self.root.clipboard_get()
+        except tk.TclError:
+            return "break"
+        lines = clip.splitlines()
+        if not lines:
+            return "break"
+        self._mark_dirty()
+        current_row = row
+        for i, line in enumerate(lines):
+            if current_row >= len(self.lines):
+                self._add_row()
+                if self._meter_var.get():
+                    self._ensure_meter_rows()
+            te = self.lines[current_row][0]
+            if i == 0:
+                # First line: insert at current cursor position
+                te.insert(tk.INSERT, line)
+            else:
+                # Subsequent lines: replace entire row content
+                te.delete(0, tk.END)
+                te.insert(0, line)
+            self._update_margin(current_row)
+            current_row += 1
+        # Focus the last row with cursor at end
+        last_row = current_row - 1
+        self.lines[last_row][0].focus_set()
+        self.lines[last_row][0].icursor(tk.END)
+        self._update_rhyme_scheme()
+        if self._meter_var.get():
+            for r in range(row, current_row):
+                if r < len(self._meter_rows):
+                    text = self.lines[r][0].get()
+                    self._fill_meter_widget(self._meter_rows[r], text)
+                    self._print_meter_analysis(text)
+        return "break"
 
     def _trim_rows(self, target):
         """Destroy excess rows and their associated widgets to prevent leaks."""
