@@ -162,6 +162,8 @@ class Editor:
         self._rhyme_cells = []   # parallel list of rhyme-scheme indicator entries
         self._current_path = None
         self._is_dirty     = False
+        self._sel_anchor   = None
+        self._sel_focus    = None
 
         _ensure_nltk_data()
         self._cmu = cmudict.dict()
@@ -1370,6 +1372,27 @@ class Editor:
             return handler(row + offset)
         widget.bind(event, wrapper)
 
+    def _clear_row_selection(self):
+        if self._sel_anchor is None:
+            return
+        start = min(self._sel_anchor, self._sel_focus)
+        end   = max(self._sel_anchor, self._sel_focus)
+        for i in range(start, end + 1):
+            if i < len(self.lines):
+                self.lines[i][0].configure(bg="white")
+        self._sel_anchor = None
+        self._sel_focus  = None
+
+    def _update_row_selection(self, anchor, focus):
+        self._clear_row_selection()
+        self._sel_anchor = anchor
+        self._sel_focus  = focus
+        start = min(anchor, focus)
+        end   = max(anchor, focus)
+        for i in range(start, end + 1):
+            if i < len(self.lines):
+                self.lines[i][0].configure(bg="#cce5ff")
+
     def _add_row(self, text=""):
         row  = len(self.lines)
         spec = self._font_spec()
@@ -1399,6 +1422,19 @@ class Editor:
         me.grid(row=row, column=1, sticky="ew")
         rc.grid(row=row, column=2, sticky="ew")
 
+        def _kp(e):
+            if e.keysym in ("Up", "Down") and (e.state & 0x1):
+                r = self._row_of(e.widget)
+                if r is None:
+                    return "break"
+                if e.keysym == "Up":
+                    self._shift_up(r)
+                else:
+                    self._shift_down(r)
+                return "break"
+            return None
+        te.bind("<KeyPress>", _kp)
+
         self._bind_row(te, "<KeyRelease>", self._on_key)
         self._bind_row(te, "<Return>",     self._next)
         self._bind_row(te, "<BackSpace>",  self._backspace)
@@ -1408,6 +1444,13 @@ class Editor:
         self._bind_row(te, "<FocusIn>",    self._on_focus_in)
         self._bind_row(te, "<FocusOut>",   self._on_focus_out)
         self._bind_row(te, "<<Paste>>",    self._paste)
+        self._bind_row(te, "<Control-c>",  self._copy)
+        self._bind_row(te, "<Control-C>",  self._copy)
+        self._bind_row(te, "<Command-c>",  self._copy)
+        self._bind_row(te, "<Command-C>",  self._copy)
+        self._bind_row(te, "<Shift-Up>",   self._shift_up)
+        self._bind_row(te, "<Shift-Down>", self._shift_down)
+        self._bind_row(te, "<Button-1>",   self._on_click)
 
         self._line_meta.append(
             [{"font": fname, "size": fsize, "len": len(text)}] if text else []
@@ -1416,6 +1459,90 @@ class Editor:
         self.lines.append((te, me))
         if text:
             self._update_margin(row)
+
+    def _insert_row(self, row, text=""):
+        """Insert a new line at the specified row index."""
+        if row > len(self.lines):
+            row = len(self.lines)
+
+        spec = self._font_spec()
+        fname, fsize = spec
+
+        te = tk.Entry(
+            self.inner, font=spec, relief="flat", bd=0,
+            bg="white", highlightthickness=0, insertbackground="black",
+        )
+        me = tk.Entry(
+            self.inner, font=spec, relief="flat", bd=0,
+            bg="#e8e8e8", highlightthickness=0,
+            width=MARGIN_CHARS, justify="center",
+            state="readonly", readonlybackground="#e8e8e8",
+        )
+        if text:
+            te.insert(0, text)
+
+        rc = tk.Entry(
+            self.inner, font=spec, relief="flat", bd=0,
+            bg="#dde8dd", highlightthickness=0,
+            width=1, justify="center",
+            state="readonly", readonlybackground="#dde8dd",
+        )
+
+        self.lines.insert(row, (te, me))
+        self._rhyme_cells.insert(row, rc)
+        self._line_meta.insert(
+            row, [{"font": fname, "size": fsize, "len": len(text)}] if text else []
+        )
+
+        if len(self._meter_rows) > 0:
+            mt = self._make_meter_widget(row)
+            self._meter_rows.insert(row, mt)
+            if text:
+                self._fill_meter_widget(mt, text)
+
+        meter_on = self._meter_var.get()
+        for i in range(row, len(self.lines)):
+            te2, me2 = self.lines[i]
+            if meter_on and i < len(self._meter_rows):
+                te2.grid_remove()
+                self._meter_rows[i].grid(row=i, column=0, sticky="ew")
+            else:
+                if i < len(self._meter_rows):
+                    self._meter_rows[i].grid_remove()
+                te2.grid(row=i, column=0, sticky="ew")
+            me2.grid(row=i, column=1, sticky="ew")
+            if i < len(self._rhyme_cells):
+                self._rhyme_cells[i].grid(row=i, column=2, sticky="ew")
+
+        def _kp(e):
+            if e.keysym in ("Up", "Down") and (e.state & 0x1):
+                r = self._row_of(e.widget)
+                if r is None:
+                    return "break"
+                if e.keysym == "Up":
+                    self._shift_up(r)
+                else:
+                    self._shift_down(r)
+                return "break"
+            return None
+        te.bind("<KeyPress>", _kp)
+
+        self._bind_row(te, "<KeyRelease>", self._on_key)
+        self._bind_row(te, "<Return>",     self._next)
+        self._bind_row(te, "<BackSpace>",  self._backspace)
+        self._bind_row(te, "<Down>",       self._go, offset=1)
+        self._bind_row(te, "<Up>",         self._go, offset=-1)
+        self._bind_row(te, "<Tab>",        self._go, offset=1)
+        self._bind_row(te, "<FocusIn>",    self._on_focus_in)
+        self._bind_row(te, "<FocusOut>",   self._on_focus_out)
+        self._bind_row(te, "<<Paste>>",    self._paste)
+        self._bind_row(te, "<Control-c>",  self._copy)
+        self._bind_row(te, "<Control-C>",  self._copy)
+        self._bind_row(te, "<Command-c>",  self._copy)
+        self._bind_row(te, "<Command-C>",  self._copy)
+        self._bind_row(te, "<Shift-Up>",   self._shift_up)
+        self._bind_row(te, "<Shift-Down>", self._shift_down)
+        self._bind_row(te, "<Button-1>",   self._on_click)
 
     def _on_key(self, row):
         self._mark_dirty()
@@ -1431,17 +1558,56 @@ class Editor:
             self._add_row()
 
     def _next(self, row):
+        self._clear_row_selection()
+        te = self.lines[row][0]
+        cursor = te.index(tk.INSERT)
+        text = te.get()
+        after = text[cursor:]
+        if after:
+            te.delete(cursor, tk.END)
+            self._update_margin(row)
         if row + 1 >= len(self.lines):
-            self._add_row()
-            if self._meter_var.get():
-                self._ensure_meter_rows()
+            self._add_row(after)
+        else:
+            self._insert_row(row + 1, after)
         self.lines[row + 1][0].focus_set()
+        self.lines[row + 1][0].icursor(0)
+        self._update_rhyme_scheme()
+        if self._meter_var.get():
+            if row < len(self._meter_rows):
+                self._fill_meter_widget(self._meter_rows[row], te.get())
+            if row + 1 < len(self._meter_rows):
+                self._fill_meter_widget(self._meter_rows[row + 1], after)
         return "break"
 
     def _go(self, row):
+        self._clear_row_selection()
         if 0 <= row < len(self.lines):
             self.lines[row][0].focus_set()
         return "break"
+
+    def _shift_up(self, row):
+        if self._sel_anchor is None:
+            self._sel_anchor = row
+            self._sel_focus  = row
+        new_focus = max(0, self._sel_focus - 1)
+        self._update_row_selection(self._sel_anchor, new_focus)
+        if 0 <= new_focus < len(self.lines):
+            self.lines[new_focus][0].focus_set()
+        return "break"
+
+    def _shift_down(self, row):
+        if self._sel_anchor is None:
+            self._sel_anchor = row
+            self._sel_focus  = row
+        new_focus = min(len(self.lines) - 1, self._sel_focus + 1)
+        self._update_row_selection(self._sel_anchor, new_focus)
+        if 0 <= new_focus < len(self.lines):
+            self.lines[new_focus][0].focus_set()
+        return "break"
+
+    def _on_click(self, row):
+        self._clear_row_selection()
 
     def _delete_row(self, row):
         """Remove a row and re-grid everything below it."""
@@ -1477,23 +1643,51 @@ class Editor:
 
     def _backspace(self, row):
         te = self.lines[row][0]
-        text = te.get()
         cursor = te.index(tk.INSERT)
-        if text == "" and cursor == 0 and row > 0:
+        if cursor == 0 and row > 0:
             self._mark_dirty()
+            self._clear_row_selection()
+            text = te.get()
             self._delete_row(row)
             prev_row = row - 1
-            self.lines[prev_row][0].focus_set()
-            # Place cursor at end of the previous line
-            prev_len = len(self.lines[prev_row][0].get())
-            self.lines[prev_row][0].icursor(prev_len)
+            prev_te = self.lines[prev_row][0]
+            prev_len = len(prev_te.get())
+            prev_te.insert(tk.END, text)
+            prev_te.focus_set()
+            prev_te.icursor(prev_len)
+            self._update_margin(prev_row)
             self._update_rhyme_scheme()
             return "break"
         # Let the default BackSpace behavior happen
         return None
 
+    def _copy(self, row):
+        """Copy selected text, selected rows, or all lines."""
+        # Multi-row selection takes priority.
+        if self._sel_anchor is not None:
+            self.root.clipboard_clear()
+            start = min(self._sel_anchor, self._sel_focus)
+            end   = max(self._sel_anchor, self._sel_focus)
+            lines = [self.lines[i][0].get() for i in range(start, end + 1)
+                     if i < len(self.lines)]
+            self.root.clipboard_append("\n".join(lines))
+            return "break"
+        te = self.lines[row][0]
+        try:
+            if te.selection_present():
+                self.root.clipboard_clear()
+                self.root.clipboard_append(te.selection_get())
+                return "break"
+        except tk.TclError:
+            pass
+        # No selection — copy the entire poem.
+        self.root.clipboard_clear()
+        self.root.clipboard_append("\n".join(line.get() for line, _ in self.lines))
+        return "break"
+
     def _paste(self, row):
         """Handle multi-line paste by splitting on universal newlines."""
+        self._clear_row_selection()
         try:
             clip = self.root.clipboard_get()
         except tk.TclError:
