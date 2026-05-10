@@ -1129,12 +1129,12 @@ class Editor:
         ).pack(side="right", padx=6, pady=3)
 
         tk.Button(
-            tb, text="Version", command=self._version_click,
+            tb, text="Make Version", command=self._version_click,
             relief="raised", padx=8, pady=2,
         ).pack(side="right", padx=(0, 6), pady=3)
 
         tk.Button(
-            tb, text="Tree", command=self._tree_click,
+            tb, text="Version Tree", command=self._tree_click,
             relief="raised", padx=8, pady=2,
         ).pack(side="right", padx=(0, 6), pady=3)
 
