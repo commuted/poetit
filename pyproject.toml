@@ -12,7 +12,7 @@ dependencies = [
     "nltk>=3.8",
     "prosodic>=3.0",
     "spacy>=3.8",
-    "cairosvg>=2.0",
+    "resvg_py>=0.3",
     "Pillow>=9.0",
     "dulwich>=0.22",
 ]

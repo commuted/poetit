@@ -962,7 +962,7 @@ class Editor:
         if not _DIAGRAM_AVAILABLE:
             messagebox.showerror(
                 "Diagram",
-                "cairosvg and Pillow are required for the diagram.\nRun: pip install cairosvg Pillow"
+                "resvg_py and Pillow are required for the diagram.\nRun: pip install resvg_py Pillow"
             )
             return
         doc = self._nlp.get_spacy_doc(text)

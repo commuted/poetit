@@ -3,7 +3,7 @@ import tkinter.font as tkfont
 from nltk.corpus import wordnet as wn
 
 try:
-    import cairosvg as _cairosvg
+    import resvg_py as _resvg
     from PIL import Image as _PILImage, ImageTk as _PILImageTk
     import io as _io
     from spacy import displacy as _displacy
@@ -131,7 +131,7 @@ def show_definition_popup(root, word):
 def show_diagram_popup(root, text, doc, screen_w, screen_h):
     options = {"compact": False, "bg": "#fffef0", "color": "#003388", "fine_grained": True}
     svg = _displacy.render(doc, style="dep", options=options)
-    png_bytes = _cairosvg.svg2png(bytestring=svg.encode("utf-8"))
+    png_bytes = _resvg.svg_to_bytes(svg_string=svg)
     img = _PILImage.open(_io.BytesIO(png_bytes))
 
     popup = tk.Toplevel(root)
