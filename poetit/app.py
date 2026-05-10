@@ -417,6 +417,11 @@ class Editor:
             toolbar, text="Chronological", variable=sort_mode, value="chrono",
             command=lambda: _refresh(),
         ).pack(side="left", padx=4)
+        tk.Button(
+            toolbar, text="Import new file…",
+            relief="raised", padx=6,
+            command=lambda: (popup.destroy(), self._import()),
+        ).pack(side="right", padx=4)
 
         def _refresh():
             for w in listbox.winfo_children():
