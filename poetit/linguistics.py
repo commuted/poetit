@@ -48,13 +48,24 @@ _HAVE_AUX   = frozenset({'have', 'has', 'had', 'having', 'hath', 'hadst'})
 _NLTK_PACKAGES = [
     ("tokenizers/punkt", "punkt_tab"),
     ("corpora/words", "words"),
-    ("corpora/wordnet", "wordnet"),
     ("taggers/averaged_perceptron_tagger", "averaged_perceptron_tagger"),
     ("taggers/averaged_perceptron_tagger_eng", "averaged_perceptron_tagger_eng"),
 ]
 
 
+def _inject_bundled_nltk_data():
+    """Add the package's bundled corpora directory to NLTK's search path."""
+    from importlib.resources import files
+    try:
+        data_dir = str(files('poetit').joinpath('data'))
+    except Exception:
+        data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+    if data_dir not in nltk.data.path:
+        nltk.data.path.insert(0, data_dir)
+
+
 def _ensure_nltk_data():
+    _inject_bundled_nltk_data()
     for path, name in _NLTK_PACKAGES:
         try:
             nltk.data.find(path)
