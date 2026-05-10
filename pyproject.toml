@@ -28,4 +28,4 @@ where = ["."]
 include = ["poetit", "poetit.*"]
 
 [tool.setuptools.package-data]
-"poetit" = ["data/*.js"]
+"poetit" = ["data/*.js", "data/*.dict"]

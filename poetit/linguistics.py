@@ -5,7 +5,6 @@ import threading
 
 import nltk
 from nltk import word_tokenize
-from nltk.corpus import cmudict
 from nltk.tokenize import SyllableTokenizer
 
 try:
@@ -49,7 +48,6 @@ _HAVE_AUX   = frozenset({'have', 'has', 'had', 'having', 'hath', 'hadst'})
 _NLTK_PACKAGES = [
     ("tokenizers/punkt", "punkt_tab"),
     ("corpora/words", "words"),
-    ("corpora/cmudict", "cmudict"),
     ("corpora/wordnet", "wordnet"),
     ("taggers/averaged_perceptron_tagger", "averaged_perceptron_tagger"),
     ("taggers/averaged_perceptron_tagger_eng", "averaged_perceptron_tagger_eng"),
@@ -81,6 +79,23 @@ def _read_data(filename):
     return None
 
 
+def _load_cmudict():
+    text = _read_data('cmudict.dict')
+    if not text:
+        return {}
+    result = {}
+    for line in text.splitlines():
+        if line.startswith(';;;') or not line.strip():
+            continue
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        word = parts[0].lower()
+        phonemes = parts[2:]   # parts[1] is the variant number
+        result.setdefault(word, []).append(phonemes)
+    return result
+
+
 def word_at_cursor(text, idx):
     idx = max(0, min(idx, len(text)))
     start = idx
@@ -103,7 +118,7 @@ def word_at_cursor(text, idx):
 class Linguistics:
     def __init__(self):
         _ensure_nltk_data()
-        self._cmu        = cmudict.dict()
+        self._cmu        = _load_cmudict()
         self._syl_tok    = SyllableTokenizer()
         self._rhyme_dict = self._load_rhyme_dict()
         self._thesaurus         = None
