@@ -2376,7 +2376,7 @@ class Editor:
     def _on_drag(self, event):
         try:
             widget_at = self.root.winfo_containing(event.x_root, event.y_root)
-        except tk.TclError:
+        except (tk.TclError, KeyError):
             return self._handle_drag_outside()
         if widget_at is None:
             return self._handle_drag_outside()
