@@ -1,4 +1,4 @@
-from poedit.app import main
+from poetit.app import main
 
 if __name__ == "__main__":
     main()

@@ -45,7 +45,7 @@ except ImportError:
     _VCS_AVAILABLE = False
 
 # State file for persisting last-used repository
-_STATE_DIR = os.path.join(os.path.expanduser("~"), ".poedit")
+_STATE_DIR = os.path.join(os.path.expanduser("~"), ".poetit")
 _STATE_FILE = os.path.join(_STATE_DIR, "state.json")
 
 # spaCy dependency labels that reliably indicate prosodically weak words.
@@ -69,7 +69,7 @@ def _read_data(filename):
     """
     from importlib.resources import files
     try:
-        return files('poedit').joinpath('data', filename).read_text(encoding='utf-8')
+        return files('poetit').joinpath('data', filename).read_text(encoding='utf-8')
     except Exception:
         pass
     here = os.path.dirname(os.path.abspath(__file__))
@@ -799,7 +799,7 @@ class Editor:
             _porcelain.commit(
                 self._repo_path,
                 message=message.encode("utf-8"),
-                author=b"Poedit User <poedit@local>",
+                author=b"Poetit User <poetit@local>",
             )
             return True
         except Exception as exc:
@@ -811,7 +811,7 @@ class Editor:
         repo = getattr(self, "_repo_path", None)
         if not repo:
             return None
-        recovery_dir = os.path.join(repo, ".poedit-recovery")
+        recovery_dir = os.path.join(repo, ".poetit-recovery")
         os.makedirs(recovery_dir, exist_ok=True)
         from datetime import datetime
         ts = datetime.now().strftime("%Y%m%d-%H%M%S")
