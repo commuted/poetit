@@ -6,7 +6,6 @@ try:
     import resvg_py as _resvg
     from PIL import Image as _PILImage, ImageTk as _PILImageTk
     import io as _io
-    from spacy import displacy as _displacy
     DIAGRAM_AVAILABLE = True
 except ImportError:
     DIAGRAM_AVAILABLE = False
@@ -128,9 +127,103 @@ def show_definition_popup(root, word):
     tk.Button(popup, text='Close', command=popup.destroy).pack(pady=6)
 
 
+def _svg_escape(text):
+    return (text.replace('&', '&amp;').replace('<', '&lt;')
+                .replace('>', '&gt;').replace('"', '&quot;'))
+
+
+def _stanza_to_svg(doc, bg="#fffef0", color="#003388"):
+    """Render a Stanza doc's first sentence as a dependency arc diagram SVG."""
+    if not doc or not doc.sentences:
+        return (f'<svg xmlns="http://www.w3.org/2000/svg" width="300" height="60"'
+                f' style="background:{bg}"><text x="10" y="35"'
+                f' font-family="sans-serif" font-size="13" fill="#555">'
+                f'No parse available.</text></svg>')
+
+    words = doc.sentences[0].words
+    n = len(words)
+
+    col_w   = 110     # horizontal pixels per word
+    pad_x   = 60      # left/right margin
+    baseline = 200    # y of word text
+    entry_y  = baseline - 22   # y where arcs meet the word row
+    level_h  = 50     # height added per unit of arc distance
+    pad_top  = 30     # clearance above the tallest arc
+
+    max_dist = max((abs(w.head - w.id) for w in words if w.head > 0), default=1)
+    svg_h = entry_y - max_dist * level_h - pad_top
+    # svg_h is the top of the diagram; ensure it's positive
+    total_h  = baseline + 48
+    total_w  = pad_x * 2 + max(n - 1, 0) * col_w
+
+    arcs, arc_labels, word_els = [], [], []
+
+    marker = (
+        f'<defs><marker id="arr" markerWidth="7" markerHeight="7"'
+        f' refX="6" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">'
+        f'<path d="M 0 0 L 7 3.5 L 0 7 Z" fill="{color}"/>'
+        f'</marker></defs>'
+    )
+
+    for word in words:
+        xi = pad_x + (word.id - 1) * col_w
+
+        # Word label
+        word_els.append(
+            f'<text x="{xi}" y="{baseline}" text-anchor="middle"'
+            f' font-family="Helvetica,Arial,sans-serif" font-size="13"'
+            f' font-weight="bold" fill="#111">{_svg_escape(word.text)}</text>'
+        )
+        # POS tag below
+        pos = word.xpos or word.upos or ''
+        word_els.append(
+            f'<text x="{xi}" y="{baseline + 18}" text-anchor="middle"'
+            f' font-family="Helvetica,Arial,sans-serif" font-size="10"'
+            f' fill="#666">{_svg_escape(pos)}</text>'
+        )
+
+        if word.head == 0:
+            # ROOT — small downward arrow above the word
+            root_y0 = entry_y - 30
+            arcs.append(
+                f'<line x1="{xi}" y1="{root_y0}" x2="{xi}" y2="{entry_y}"'
+                f' stroke="{color}" stroke-width="1.5" marker-end="url(#arr)"/>'
+            )
+            arc_labels.append(
+                f'<text x="{xi}" y="{root_y0 - 5}" text-anchor="middle"'
+                f' font-family="Helvetica,Arial,sans-serif" font-size="10"'
+                f' fill="{color}">root</text>'
+            )
+        else:
+            xh   = pad_x + (word.head - 1) * col_w
+            dist = abs(word.head - word.id)
+            peak_y = entry_y - dist * level_h
+            mid_x  = (xi + xh) / 2
+
+            arcs.append(
+                f'<path d="M {xh} {entry_y} Q {mid_x} {peak_y} {xi} {entry_y}"'
+                f' stroke="{color}" fill="none" stroke-width="1.5"'
+                f' marker-end="url(#arr)"/>'
+            )
+            arc_labels.append(
+                f'<text x="{mid_x}" y="{peak_y - 6}" text-anchor="middle"'
+                f' font-family="Helvetica,Arial,sans-serif" font-size="10"'
+                f' fill="{color}">{_svg_escape(word.deprel or "")}</text>'
+            )
+
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg"'
+        f' width="{total_w}" height="{total_h}" style="background:{bg}">\n'
+        + marker + '\n'
+        + '\n'.join(arcs) + '\n'
+        + '\n'.join(arc_labels) + '\n'
+        + '\n'.join(word_els) + '\n'
+        + '</svg>'
+    )
+
+
 def show_diagram_popup(root, text, doc, screen_w, screen_h):
-    options = {"compact": False, "bg": "#fffef0", "color": "#003388", "fine_grained": True}
-    svg = _displacy.render(doc, style="dep", options=options)
+    svg = _stanza_to_svg(doc)
     png_bytes = _resvg.svg_to_bytes(svg_string=svg)
     img = _PILImage.open(_io.BytesIO(png_bytes))
 
@@ -142,18 +235,17 @@ def show_diagram_popup(root, text, doc, screen_w, screen_h):
     tk.Label(popup, text=text, font=("Helvetica", 11), wraplength=700,
              justify="left", pady=4).pack(fill=tk.X, padx=8)
 
+    # Word annotation row: text / deprel / upos
     info_frame = tk.Frame(popup, bg="#eef2fb")
     info_frame.pack(fill=tk.X, padx=8, pady=(0, 4))
-    for tok in doc:
-        if tok.is_alpha:
-            cell = tk.Frame(info_frame, bg="#eef2fb", padx=4)
-            cell.pack(side="left")
-            tk.Label(cell, text=tok.text, font=("Courier", 9, "bold"), bg="#eef2fb").pack()
-            tk.Label(cell, text=tok.dep_,  font=("Courier", 8), fg="#005500", bg="#eef2fb").pack()
-            tk.Label(cell, text=tok.pos_,  font=("Courier", 8), fg="#550000", bg="#eef2fb").pack()
-            if tok.ent_type_:
-                tk.Label(cell, text=f"[{tok.ent_type_}]", font=("Courier", 7),
-                         fg="#884400", bg="#eef2fb").pack()
+    if doc and doc.sentences:
+        for word in doc.sentences[0].words:
+            if word.text.isalpha():
+                cell = tk.Frame(info_frame, bg="#eef2fb", padx=4)
+                cell.pack(side="left")
+                tk.Label(cell, text=word.text,   font=("Courier", 9, "bold"), bg="#eef2fb").pack()
+                tk.Label(cell, text=word.deprel, font=("Courier", 8), fg="#005500", bg="#eef2fb").pack()
+                tk.Label(cell, text=word.upos,   font=("Courier", 8), fg="#550000", bg="#eef2fb").pack()
 
     frame = tk.Frame(popup)
     frame.pack(fill=tk.BOTH, expand=True)
@@ -164,7 +256,7 @@ def show_diagram_popup(root, text, doc, screen_w, screen_h):
     h_sb.configure(command=cv.xview)
     v_sb.configure(command=cv.yview)
     h_sb.pack(side=tk.BOTTOM, fill=tk.X)
-    v_sb.pack(side=tk.RIGHT, fill=tk.Y)
+    v_sb.pack(side=tk.RIGHT,  fill=tk.Y)
     cv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
     photo = _PILImageTk.PhotoImage(img)

@@ -6,7 +6,7 @@ import tkinter.ttk as ttk
 from tkinter import filedialog, messagebox
 import tkinter.font as tkfont
 
-from poetit.linguistics import Linguistics, word_at_cursor, SPACY_AVAILABLE as _SPACY_AVAILABLE
+from poetit.linguistics import Linguistics, word_at_cursor, STANZA_AVAILABLE as _STANZA_AVAILABLE
 from poetit import file_io, popups
 from poetit.popups import DIAGRAM_AVAILABLE as _DIAGRAM_AVAILABLE
 
@@ -1053,7 +1053,7 @@ class Editor:
         )
 
     # ------------------------------------------------------------------ #
-    # Dependency diagram (spaCy displacy)
+    # Dependency diagram (Stanza)
     # ------------------------------------------------------------------ #
 
     def _diagram_click(self):
@@ -1067,10 +1067,10 @@ class Editor:
         if not text:
             messagebox.showinfo("Diagram", "The current line is empty.")
             return
-        if not _SPACY_AVAILABLE:
+        if not _STANZA_AVAILABLE:
             messagebox.showerror(
                 "Diagram",
-                "spaCy is not installed.\nRun: pip install spacy && python -m spacy download en_core_web_md"
+                "Stanza is not installed.\nRun: pip install stanza"
             )
             return
         if not _DIAGRAM_AVAILABLE:
@@ -1079,9 +1079,13 @@ class Editor:
                 "resvg_py and Pillow are required for the diagram.\nRun: pip install resvg_py Pillow"
             )
             return
-        doc = self._nlp.get_spacy_doc(text)
+        doc = self._nlp.get_stanza_doc(text)
         if doc is None:
-            messagebox.showerror("Diagram", "Could not load spaCy model 'en_core_web_md'.")
+            messagebox.showerror(
+                "Diagram",
+                "Stanza model not ready yet — still loading, or download failed.\n"
+                "Try again in a moment."
+            )
             return
         popups.show_diagram_popup(
             self.root, text, doc,

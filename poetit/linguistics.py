@@ -14,15 +14,18 @@ except ImportError:
     _PROSODIC_AVAILABLE = False
 
 try:
-    import spacy as _spacy
-    SPACY_AVAILABLE = True
+    import stanza as _stanza
+    STANZA_AVAILABLE = True
 except ImportError:
-    SPACY_AVAILABLE = False
+    STANZA_AVAILABLE = False
 
 SEP_DOT = "·"
 
 _WEAK_DEPS = frozenset({
-    'aux', 'auxpass', 'det', 'mark', 'cc', 'case', 'expl', 'prep',
+    # Universal Dependencies (Stanza)
+    'aux', 'aux:pass', 'det', 'mark', 'cc', 'case', 'expl', 'cop',
+    # Stanford / spaCy aliases kept for fallback compatibility
+    'auxpass', 'prep',
 })
 
 _FUNCTION_POS = frozenset({
@@ -132,14 +135,14 @@ class Linguistics:
         self._cmu        = _load_cmudict()
         self._syl_tok    = SyllableTokenizer()
         self._rhyme_dict = self._load_rhyme_dict()
-        self._thesaurus         = None
-        self._thesaurus_loading = False
-        self._spacy_nlp         = None
-        self._spacy_loading     = False
+        self._thesaurus          = None
+        self._thesaurus_loading  = False
+        self._stanza_nlp         = None
+        self._stanza_loading     = False
 
     def start_background_loads(self):
-        if SPACY_AVAILABLE:
-            threading.Thread(target=self._load_spacy_background, daemon=True).start()
+        if STANZA_AVAILABLE:
+            threading.Thread(target=self._load_stanza_background, daemon=True).start()
         threading.Thread(target=self._load_thesaurus_background, daemon=True).start()
 
     # ------------------------------------------------------------------ #
@@ -288,31 +291,41 @@ class Linguistics:
         return result
 
     # ------------------------------------------------------------------ #
-    # spaCy
+    # Stanza
     # ------------------------------------------------------------------ #
 
-    def _load_spacy_background(self):
-        if not SPACY_AVAILABLE or self._spacy_nlp is not None or self._spacy_loading:
+    _STANZA_PROCESSORS = 'tokenize,mwt,pos,lemma,depparse'
+
+    def _load_stanza_background(self):
+        if not STANZA_AVAILABLE or self._stanza_nlp is not None or self._stanza_loading:
             return
-        self._spacy_loading = True
+        self._stanza_loading = True
         try:
-            self._spacy_nlp = _spacy.load("en_core_web_md")
+            self._stanza_nlp = _stanza.Pipeline(
+                'en',
+                processors=self._STANZA_PROCESSORS,
+                verbose=False,
+            )
         except Exception:
             pass
         finally:
-            self._spacy_loading = False
+            self._stanza_loading = False
 
-    def get_spacy_doc(self, text):
-        if not SPACY_AVAILABLE:
+    def get_stanza_doc(self, text):
+        if not STANZA_AVAILABLE:
             return None
-        if self._spacy_nlp is None:
-            if self._spacy_loading:
+        if self._stanza_nlp is None:
+            if self._stanza_loading:
                 return None
             try:
-                self._spacy_nlp = _spacy.load("en_core_web_md")
+                self._stanza_nlp = _stanza.Pipeline(
+                    'en',
+                    processors=self._STANZA_PROCESSORS,
+                    verbose=False,
+                )
             except Exception:
                 return None
-        return self._spacy_nlp(text)
+        return self._stanza_nlp(text)
 
     # ------------------------------------------------------------------ #
     # Meter analysis
@@ -320,7 +333,7 @@ class Linguistics:
 
     def _is_function(self, word, pos_tag, prev_word=None, dep=None):
         if dep is not None:
-            if dep == 'ROOT':
+            if dep in ('ROOT', 'root'):   # spaCy uppercase, Stanza/UD lowercase
                 return False
             if dep in _WEAK_DEPS:
                 return True
@@ -371,9 +384,14 @@ class Linguistics:
         word_tokens = re.findall(r'[A-Za-z]+', text)
         if not word_tokens:
             return []
-        doc = self.get_spacy_doc(text)
+        doc = self.get_stanza_doc(text)
         if doc is not None:
-            result = [(tok.text, tok.tag_, tok.dep_) for tok in doc if tok.is_alpha]
+            result = [
+                (w.text, w.xpos or 'NN', w.deprel or '')
+                for sent in doc.sentences
+                for w in sent.words
+                if w.text.isalpha()
+            ]
             if result:
                 return result
         try:
