@@ -132,6 +132,28 @@ def _svg_escape(text):
                 .replace('>', '&gt;').replace('"', '&quot;'))
 
 
+def _arc_levels(words):
+    """Assign each dependent word a nesting level (1-based) via interval graph coloring."""
+    spans = [
+        (min(w.id, w.head), max(w.id, w.head), w.id)
+        for w in words if w.head > 0
+    ]
+    spans.sort(key=lambda s: (s[1] - s[0], s[0]))
+    levels, buckets = {}, []
+    for lo, hi, wid in spans:
+        placed = False
+        for lvl_idx, bucket in enumerate(buckets):
+            if not any(lo < bhi and hi > blo for blo, bhi in bucket):
+                bucket.append((lo, hi))
+                levels[wid] = lvl_idx + 1
+                placed = True
+                break
+        if not placed:
+            buckets.append([(lo, hi)])
+            levels[wid] = len(buckets)
+    return levels
+
+
 def _stanza_to_svg(doc, bg="#fffef0", color="#003388"):
     """Render a Stanza doc's first sentence as a dependency arc diagram SVG."""
     if not doc or not doc.sentences:
@@ -146,19 +168,16 @@ def _stanza_to_svg(doc, bg="#fffef0", color="#003388"):
     col_w        = 110   # horizontal pixels per word
     pad_x        = 60    # left/right margin
     entry_offset = 22    # gap between word baseline and arc attachment point
-    level_h      = 50    # height per unit of word-distance for arc peaks
-    pad_top      = 30    # minimum clearance above the tallest arc/label
-    root_height  = 35    # vertical space needed for the ROOT indicator above entry_y
+    level_step   = 34    # px per nesting level
+    pad_top      = 28    # clearance above topmost arc label
+    root_clear   = 42    # space needed for the ROOT indicator above entry_y
 
-    max_dist = max((abs(w.head - w.id) for w in words if w.head > 0), default=1)
+    arc_lvls  = _arc_levels(words)
+    max_level = max(arc_lvls.values(), default=1)
 
-    # entry_y must be far enough from the top to fit:
-    #   - the tallest arc peak  (max_dist * level_h below entry_y)
-    #   - the ROOT indicator    (root_height above entry_y)
-    #   - pad_top clearance above all of the above
-    entry_y  = pad_top + max(max_dist * level_h + 10, root_height)
+    entry_y  = pad_top + max(max_level * level_step + 14, root_clear)
     baseline = entry_y + entry_offset
-    total_h  = baseline + 48    # words row + POS tags + bottom padding
+    total_h  = baseline + 48
     total_w  = pad_x * 2 + max(n - 1, 0) * col_w
 
     arcs, arc_labels, word_els = [], [], []
@@ -173,13 +192,11 @@ def _stanza_to_svg(doc, bg="#fffef0", color="#003388"):
     for word in words:
         xi = pad_x + (word.id - 1) * col_w
 
-        # Word label
         word_els.append(
             f'<text x="{xi}" y="{baseline}" text-anchor="middle"'
             f' font-family="Helvetica,Arial,sans-serif" font-size="13"'
             f' font-weight="bold" fill="#111">{_svg_escape(word.text)}</text>'
         )
-        # POS tag below
         pos = word.xpos or word.upos or ''
         word_els.append(
             f'<text x="{xi}" y="{baseline + 18}" text-anchor="middle"'
@@ -188,7 +205,6 @@ def _stanza_to_svg(doc, bg="#fffef0", color="#003388"):
         )
 
         if word.head == 0:
-            # ROOT — small downward arrow above the word
             root_y0 = entry_y - 30
             arcs.append(
                 f'<line x1="{xi}" y1="{root_y0}" x2="{xi}" y2="{entry_y}"'
@@ -200,20 +216,31 @@ def _stanza_to_svg(doc, bg="#fffef0", color="#003388"):
                 f' fill="{color}">root</text>'
             )
         else:
-            xh   = pad_x + (word.head - 1) * col_w
-            dist = abs(word.head - word.id)
-            peak_y = entry_y - dist * level_h
+            xh     = pad_x + (word.head - 1) * col_w
+            level  = arc_lvls.get(word.id, 1)
+            peak_y = entry_y - level * level_step
             mid_x  = (xi + xh) / 2
 
+            # Cubic bezier: control points directly above endpoints → vertical rise,
+            # flat top, vertical drop; eliminates diagonal crossings between arcs
             arcs.append(
-                f'<path d="M {xh} {entry_y} Q {mid_x} {peak_y} {xi} {entry_y}"'
+                f'<path d="M {xh} {entry_y} C {xh} {peak_y}, {xi} {peak_y}, {xi} {entry_y}"'
                 f' stroke="{color}" fill="none" stroke-width="1.5"'
                 f' marker-end="url(#arr)"/>'
             )
+
+            # Cubic bezier at t=0.5: y = 0.25·entry_y + 0.75·peak_y (actual curve position)
+            lbl_center_y = round(entry_y * 0.25 + peak_y * 0.75)
+            lbl_text = word.deprel or ""
+            lbl_w = len(lbl_text) * 6 + 6
             arc_labels.append(
-                f'<text x="{mid_x}" y="{peak_y - 6}" text-anchor="middle"'
+                f'<rect x="{round(mid_x - lbl_w / 2)}" y="{lbl_center_y - 6}"'
+                f' width="{lbl_w}" height="11" fill="{bg}"/>'
+            )
+            arc_labels.append(
+                f'<text x="{mid_x}" y="{lbl_center_y + 4}" text-anchor="middle"'
                 f' font-family="Helvetica,Arial,sans-serif" font-size="10"'
-                f' fill="{color}">{_svg_escape(word.deprel or "")}</text>'
+                f' fill="{color}">{_svg_escape(lbl_text)}</text>'
             )
 
     return (
