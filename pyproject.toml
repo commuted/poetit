@@ -36,23 +36,19 @@ Homepage    = "https://github.com/commuted/poetit"
 Repository  = "https://github.com/commuted/poetit"
 "Bug Tracker" = "https://github.com/commuted/poetit/issues"
 
-# Core dependencies — enough to run the editor with all basic features.
-# CMUDict and WordNet are bundled; no separate NLTK download required.
+# CMUDict and WordNet are bundled; no separate NLTK data download required.
+# After install, run: python -m spacy download en_core_web_md
 dependencies = [
     "nltk>=3.8",
-    "dulwich>=0.22",
+    "prosodic>=3.0",
+    "spacy>=3.8",
+    "resvg_py>=0.3",
     "Pillow>=9.0",
+    "dulwich>=0.22",
 ]
 
 [project.optional-dependencies]
-# Enhanced stress analysis via the prosodic scansion library
-meter   = ["prosodic>=3.0"]
-# Dependency-parse diagram (requires a spaCy English model too:
-#   python -m spacy download en_core_web_md)
-diagram = ["spacy>=3.8", "resvg_py>=0.3"]
-# Everything
-full    = ["prosodic>=3.0", "spacy>=3.8", "resvg_py>=0.3"]
-dev     = ["build", "twine", "pytest>=8.0"]
+dev = ["build", "twine", "pytest>=8.0"]
 
 [project.scripts]
 poetit = "poetit.app:main"
