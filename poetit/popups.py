@@ -143,17 +143,22 @@ def _stanza_to_svg(doc, bg="#fffef0", color="#003388"):
     words = doc.sentences[0].words
     n = len(words)
 
-    col_w   = 110     # horizontal pixels per word
-    pad_x   = 60      # left/right margin
-    baseline = 200    # y of word text
-    entry_y  = baseline - 22   # y where arcs meet the word row
-    level_h  = 50     # height added per unit of arc distance
-    pad_top  = 30     # clearance above the tallest arc
+    col_w        = 110   # horizontal pixels per word
+    pad_x        = 60    # left/right margin
+    entry_offset = 22    # gap between word baseline and arc attachment point
+    level_h      = 50    # height per unit of word-distance for arc peaks
+    pad_top      = 30    # minimum clearance above the tallest arc/label
+    root_height  = 35    # vertical space needed for the ROOT indicator above entry_y
 
     max_dist = max((abs(w.head - w.id) for w in words if w.head > 0), default=1)
-    svg_h = entry_y - max_dist * level_h - pad_top
-    # svg_h is the top of the diagram; ensure it's positive
-    total_h  = baseline + 48
+
+    # entry_y must be far enough from the top to fit:
+    #   - the tallest arc peak  (max_dist * level_h below entry_y)
+    #   - the ROOT indicator    (root_height above entry_y)
+    #   - pad_top clearance above all of the above
+    entry_y  = pad_top + max(max_dist * level_h + 10, root_height)
+    baseline = entry_y + entry_offset
+    total_h  = baseline + 48    # words row + POS tags + bottom padding
     total_w  = pad_x * 2 + max(n - 1, 0) * col_w
 
     arcs, arc_labels, word_els = [], [], []
